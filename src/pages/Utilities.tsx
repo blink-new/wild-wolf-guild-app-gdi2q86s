@@ -4,6 +4,7 @@ import { Clock, ExternalLink, Sword, Shield, Crown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
+import { BossTimer } from '../components/BossTimer';
 
 export const Utilities = () => {
   const [bossTimers] = useState([
@@ -132,9 +133,7 @@ export const Utilities = () => {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-400">Next spawn:</span>
-                    <span className="text-amber-400 font-semibold">
-                      {getTimeUntilSpawn(boss.nextSpawn)}
-                    </span>
+                    <BossTimer bossName={boss.name} spawnTime={boss.nextSpawn} />
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Level:</span>
