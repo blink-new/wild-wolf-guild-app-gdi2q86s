@@ -1,49 +1,61 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Pin, MessageCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Avatar, AvatarFallback } from '../components/ui/avatar';
+import apiClient from '../lib/apiClient';
+
+interface ForumCategory {
+  id: number;
+  name: string;
+  description: string;
+  slug: string;
+}
+
+interface ForumPost {
+  id: number;
+  title: string;
+  content: string;
+  author: string;
+  category: string;
+  replies: number;
+  lastReply: string;
+  isPinned: boolean;
+  createdAt: string;
+}
 
 export const Forum = () => {
-  const [posts] = useState([
-    {
-      id: 1,
-      title: 'Node War Discussion - Balenos Strategy',
-      content: 'Lets discuss our strategy for the upcoming node war...',
-      author: 'WarCommander',
-      category: 'PvP',
-      replies: 12,
-      lastReply: '2 hours ago',
-      isPinned: true,
-      createdAt: '2024-01-14'
-    },
-    {
-      id: 2,
-      title: 'Guild Enhancement Event Planning',
-      content: 'Planning our next guild enhancement event...',
-      author: 'GuildMaster',
-      category: 'Events',
-      replies: 8,
-      lastReply: '4 hours ago',
-      isPinned: false,
-      createdAt: '2024-01-13'
-    },
-    {
-      id: 3,
-      title: 'New Member Introductions',
-      content: 'Welcome thread for new guild members...',
-      author: 'Quartermaster',
-      category: 'General',
-      replies: 25,
-      lastReply: '1 hour ago',
-      isPinned: false,
-      createdAt: '2024-01-12'
-    },
-  ]);
+  const [categories, setCategories] = useState<ForumCategory[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [posts, setPosts] = useState<ForumPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const categories = ['All', 'General', 'PvP', 'PvE', 'Events', 'Trading'];
+  useEffect(() => {
+    const fetchForum = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [catRes, postRes] = await Promise.all([
+          apiClient.get('/forum/categories'),
+          apiClient.get('/forum/posts'),
+        ]);
+        setCategories([{ id: 0, name: 'All', description: '', slug: 'all' }, ...catRes.data.categories]);
+        setPosts(postRes.data.posts);
+      } catch {
+        setError('Failed to load forum data.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchForum();
+  }, []);
+
+  const filteredPosts = posts.filter(post =>
+    selectedCategory === 'All' || post.category === selectedCategory
+  );
 
   return (
     <motion.div
@@ -68,67 +80,78 @@ export const Forum = () => {
       <div className="flex flex-wrap gap-2">
         {categories.map((category) => (
           <Badge
-            key={category}
-            variant="outline"
-            className="cursor-pointer border-amber-500/20 text-amber-400 hover:bg-amber-500/10"
+            key={category.slug}
+            variant={selectedCategory === category.name ? 'default' : 'outline'}
+            className={`cursor-pointer border-amber-500/20 text-amber-400 hover:bg-amber-500/10 ${selectedCategory === category.name ? 'bg-amber-500/20' : ''}`}
+            onClick={() => setSelectedCategory(category.name)}
           >
-            {category}
+            {category.name}
           </Badge>
         ))}
       </div>
 
+      {/* Loading/Error States */}
+      {loading && (
+        <div className="text-center text-gray-400 py-8">Loading forum...</div>
+      )}
+      {error && (
+        <div className="text-center text-red-500 py-8">{error}</div>
+      )}
+
       {/* Posts */}
-      <div className="space-y-4">
-        {posts.map((post, index) => (
-          <motion.div
-            key={post.id}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: index * 0.1 }}
-          >
-            <Card className="border-amber-500/20 bg-slate-800/50 backdrop-blur-sm hover:border-amber-500/40 transition-all duration-300">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="w-10 h-10">
-                      <AvatarFallback className="bg-gradient-to-br from-amber-500 to-orange-600 text-white">
-                        {post.author[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-white">{post.title}</CardTitle>
-                        {post.isPinned && <Pin className="w-4 h-4 text-amber-500" />}
+      {!loading && !error && (
+        <div className="space-y-4">
+          {filteredPosts.map((post, index) => (
+            <motion.div
+              key={post.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.1 }}
+            >
+              <Card className="border-amber-500/20 bg-slate-800/50 backdrop-blur-sm hover:border-amber-500/40 transition-all duration-300">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="w-10 h-10">
+                        <AvatarFallback className="bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+                          {post.author[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-white">{post.title}</CardTitle>
+                          {post.isPinned && <Pin className="w-4 h-4 text-amber-500" />}
+                        </div>
+                        <p className="text-sm text-gray-400">
+                          by {post.author} • {post.createdAt}
+                        </p>
                       </div>
-                      <p className="text-sm text-gray-400">
-                        by {post.author} • {post.createdAt}
-                      </p>
                     </div>
+                    <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/20">
+                      {post.category}
+                    </Badge>
                   </div>
-                  <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/20">
-                    {post.category}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-300 mb-4">{post.content}</p>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 text-sm text-gray-400">
-                    <div className="flex items-center gap-1">
-                      <MessageCircle className="w-4 h-4" />
-                      {post.replies} replies
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-300 mb-4">{post.content}</p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 text-sm text-gray-400">
+                      <div className="flex items-center gap-1">
+                        <MessageCircle className="w-4 h-4" />
+                        {post.replies} replies
+                      </div>
+                      <div>Last reply: {post.lastReply}</div>
                     </div>
-                    <div>Last reply: {post.lastReply}</div>
+                    <Button variant="outline" className="border-amber-500/20 text-amber-400 hover:bg-amber-500/10">
+                      View Discussion
+                    </Button>
                   </div>
-                  <Button variant="outline" className="border-amber-500/20 text-amber-400 hover:bg-amber-500/10">
-                    View Discussion
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 };
