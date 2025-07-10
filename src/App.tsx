@@ -14,6 +14,7 @@ import { Profile } from './pages/Profile';
 import { Utilities } from './pages/Utilities';
 import { LoadingScreen } from './components/LoadingScreen';
 import { DiscordCallback } from './pages/DiscordCallback';
+import { WikiArticlePage } from './pages/WikiArticle';
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +39,7 @@ function App() {
           <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
             <Routes>
               <Route path="/auth/discord/callback" element={<DiscordCallback />} />
+              <Route path="/wiki/:id" element={<WikiArticlePage />} />
               <Route path="/" element={<Layout />}>
                 <Route index element={<Dashboard />} />
                 <Route path="members" element={<Members />} />

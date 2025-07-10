@@ -6,6 +6,7 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import apiClient from '../lib/apiClient';
+import { useNavigate } from 'react-router-dom';
 
 interface WikiArticle {
   id: number;
@@ -25,6 +26,7 @@ export const Wiki = () => {
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>(['All']);
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchArticles = async () => {
@@ -146,7 +148,7 @@ export const Wiki = () => {
                     <span>Updated {article.updated_at ? new Date(article.updated_at).toLocaleDateString() : '-'}</span>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1 border-amber-500/20 text-amber-400 hover:bg-amber-500/10">
+                    <Button size="sm" variant="outline" className="flex-1 border-amber-500/20 text-amber-400 hover:bg-amber-500/10" onClick={() => navigate(`/wiki/${article.id}`)}>
                       Read More
                     </Button>
                     <Button size="sm" variant="outline" className="border-gray-500/20 text-gray-400 hover:bg-gray-500/10">
