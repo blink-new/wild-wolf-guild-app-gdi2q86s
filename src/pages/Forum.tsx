@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Pin, MessageCircle } from 'lucide-react';
+import { Plus, Pin, MessageCircle, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Avatar, AvatarFallback } from '../components/ui/avatar';
-import apiClient from '../lib/apiClient';
+import { Input } from '../components/ui/input';
+import { Textarea } from '../components/ui/textarea';
 import { useNavigate } from 'react-router-dom';
+import apiClient from '../lib/apiClient';
 
 interface ForumCategory {
   id: number;
@@ -33,28 +35,59 @@ export const Forum = () => {
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createSuccess, setCreateSuccess] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    title: '',
+    content: '',
+    category: 'General',
+  });
   const navigate = useNavigate();
 
+  const fetchForum = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [catRes, postRes] = await Promise.all([
+        apiClient.get('/forum/categories'),
+        apiClient.get('/forum/posts'),
+      ]);
+      setCategories([{ id: 0, name: 'All', description: '', slug: 'all' }, ...catRes.data.categories]);
+      setPosts(postRes.data.posts);
+    } catch {
+      setError('Failed to load forum data.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchForum = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [catRes, postRes] = await Promise.all([
-          apiClient.get('/forum/categories'),
-          apiClient.get('/forum/posts'),
-        ]);
-        setCategories([{ id: 0, name: 'All', description: '', slug: 'all' }, ...catRes.data.categories]);
-        setPosts(postRes.data.posts);
-      } catch {
-        setError('Failed to load forum data.');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchForum();
   }, []);
+
+  const handleCreatePost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreating(true);
+    setCreateError(null);
+    setCreateSuccess(null);
+    try {
+      await apiClient.post('/forum/posts', {
+        title: form.title,
+        content: form.content,
+        category: form.category,
+      });
+      setCreateSuccess('Post created!');
+      setForm({ title: '', content: '', category: 'General' });
+      setShowCreate(false);
+      fetchForum();
+    } catch {
+      setCreateError('Failed to create post.');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const filteredPosts = posts.filter(post =>
     selectedCategory === 'All' || post.category === selectedCategory
@@ -73,11 +106,38 @@ export const Forum = () => {
           <h1 className="text-3xl font-bold text-white">Guild Forum</h1>
           <p className="text-gray-400">Discuss and share with guild members</p>
         </div>
-        <Button className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white">
+        <Button onClick={() => setShowCreate(true)} className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white">
           <Plus className="w-4 h-4 mr-2" />
           New Post
         </Button>
       </div>
+
+      {/* Create Post Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-slate-900 p-8 rounded-lg shadow-lg w-full max-w-lg border border-amber-500/20">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-white">Create New Post</h2>
+              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-white"><X /></button>
+            </div>
+            <form onSubmit={handleCreatePost} className="space-y-4">
+              <Input required placeholder="Title" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+              <select className="w-full bg-slate-800 text-white rounded p-2" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                {categories.filter(c => c.name !== 'All').map(c => (
+                  <option key={c.slug} value={c.name}>{c.name}</option>
+                ))}
+              </select>
+              <Textarea required placeholder="Content" value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} rows={6} />
+              {createError && <div className="text-red-500 text-sm">{createError}</div>}
+              {createSuccess && <div className="text-green-500 text-sm">{createSuccess}</div>}
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setShowCreate(false)} className="border-gray-500/20 text-gray-400 hover:bg-gray-500/10">Cancel</Button>
+                <Button type="submit" className="bg-gradient-to-r from-amber-500 to-orange-600 text-white" disabled={creating}>{creating ? 'Creating...' : 'Create'}</Button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
 
       {/* Categories */}
       <div className="flex flex-wrap gap-2">
@@ -126,7 +186,7 @@ export const Forum = () => {
                           {post.isPinned && <Pin className="w-4 h-4 text-amber-500" />}
                         </div>
                         <p className="text-sm text-gray-400">
-                          by {post.author} • {post.createdAt}
+                          by {post.author} • {new Date(post.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
@@ -136,7 +196,7 @@ export const Forum = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-300 mb-4">{post.content}</p>
+                  <p className="text-gray-300 mb-4 line-clamp-3">{post.content}</p>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4 text-sm text-gray-400">
                       <div className="flex items-center gap-1">
