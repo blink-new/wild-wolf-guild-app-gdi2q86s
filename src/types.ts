@@ -1,10 +1,3 @@
-import { createClient } from '@blinkdotnew/sdk';
-
-export const blink = createClient({
-  projectId: 'wild-wolf-guild-app-gdi2q86s',
-  authRequired: true
-});
-
 export type User = {
   id: string;
   email: string;
