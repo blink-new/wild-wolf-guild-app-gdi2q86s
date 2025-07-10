@@ -1,50 +1,58 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, Search, Edit, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
+import apiClient from '../lib/apiClient';
+
+interface WikiArticle {
+  id: number;
+  title: string;
+  category: string;
+  content: string;
+  tags: string[];
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export const Wiki = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [articles] = useState([
-    {
-      id: 1,
-      title: 'Guild Rules & Guidelines',
-      category: 'Administration',
-      content: 'Essential rules every guild member must follow...',
-      author: 'Guild Master',
-      lastUpdated: '2024-01-10',
-      tags: ['rules', 'guidelines', 'important']
-    },
-    {
-      id: 2,
-      title: 'Node War Strategy Guide',
-      category: 'PvP',
-      content: 'Complete guide to node war tactics and strategies...',
-      author: 'War Commander',
-      lastUpdated: '2024-01-12',
-      tags: ['pvp', 'strategy', 'nodewar']
-    },
-    {
-      id: 3,
-      title: 'Boss Hunting Schedule',
-      category: 'PvE',
-      content: 'Weekly boss hunting schedule and strategies...',
-      author: 'Hunt Master',
-      lastUpdated: '2024-01-14',
-      tags: ['pve', 'boss', 'schedule']
-    },
-  ]);
+  const [articles, setArticles] = useState<WikiArticle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<string[]>(['All']);
+  const [selectedCategory, setSelectedCategory] = useState('All');
 
-  const categories = ['All', 'Administration', 'PvP', 'PvE', 'Trading', 'Crafting'];
+  useEffect(() => {
+    const fetchArticles = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await apiClient.get('/wiki');
+        setArticles(response.data.articles);
+        // Extract unique categories
+        const cats = Array.from(new Set(response.data.articles.map((a: WikiArticle) => a.category)));
+        setCategories(['All', ...cats]);
+      } catch {
+        setError('Failed to load wiki articles.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchArticles();
+  }, []);
 
-  const filteredArticles = articles.filter(article =>
-    article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    article.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    article.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredArticles = articles.filter(article => {
+    const matchesSearch =
+      article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      article.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      article.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesCategory = selectedCategory === 'All' || article.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <motion.div
@@ -85,61 +93,72 @@ export const Wiki = () => {
         {categories.map((category) => (
           <Badge
             key={category}
-            variant="outline"
-            className="cursor-pointer border-amber-500/20 text-amber-400 hover:bg-amber-500/10"
+            variant={selectedCategory === category ? 'default' : 'outline'}
+            className={`cursor-pointer border-amber-500/20 text-amber-400 hover:bg-amber-500/10 ${selectedCategory === category ? 'bg-amber-500/20' : ''}`}
+            onClick={() => setSelectedCategory(category)}
           >
             {category}
           </Badge>
         ))}
       </div>
 
+      {/* Loading/Error States */}
+      {loading && (
+        <div className="text-center text-gray-400 py-8">Loading articles...</div>
+      )}
+      {error && (
+        <div className="text-center text-red-500 py-8">{error}</div>
+      )}
+
       {/* Articles */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredArticles.map((article, index) => (
-          <motion.div
-            key={article.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-          >
-            <Card className="border-amber-500/20 bg-slate-800/50 backdrop-blur-sm hover:border-amber-500/40 transition-all duration-300 hover:scale-105">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <BookOpen className="w-6 h-6 text-amber-500" />
-                  <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/20">
-                    {article.category}
-                  </Badge>
-                </div>
-                <CardTitle className="text-white">{article.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-300 text-sm mb-4 line-clamp-3">
-                  {article.content}
-                </p>
-                <div className="flex flex-wrap gap-1 mb-4">
-                  {article.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="text-xs">
-                      {tag}
+      {!loading && !error && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredArticles.map((article, index) => (
+            <motion.div
+              key={article.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+            >
+              <Card className="border-amber-500/20 bg-slate-800/50 backdrop-blur-sm hover:border-amber-500/40 transition-all duration-300 hover:scale-105">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <BookOpen className="w-6 h-6 text-amber-500" />
+                    <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/20">
+                      {article.category}
                     </Badge>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
-                  <span>By {article.author}</span>
-                  <span>Updated {article.lastUpdated}</span>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1 border-amber-500/20 text-amber-400 hover:bg-amber-500/10">
-                    Read More
-                  </Button>
-                  <Button size="sm" variant="outline" className="border-gray-500/20 text-gray-400 hover:bg-gray-500/10">
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
+                  </div>
+                  <CardTitle className="text-white">{article.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-300 text-sm mb-4 line-clamp-3">
+                    {article.content}
+                  </p>
+                  <div className="flex flex-wrap gap-1 mb-4">
+                    {article.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
+                    <span>By {article.created_by}</span>
+                    <span>Updated {article.updated_at ? new Date(article.updated_at).toLocaleDateString() : '-'}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1 border-amber-500/20 text-amber-400 hover:bg-amber-500/10">
+                      Read More
+                    </Button>
+                    <Button size="sm" variant="outline" className="border-gray-500/20 text-gray-400 hover:bg-gray-500/10">
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 };
