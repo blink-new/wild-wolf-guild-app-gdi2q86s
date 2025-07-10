@@ -1,74 +1,143 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Avatar, AvatarFallback } from '../components/ui/avatar';
+import apiClient from '../lib/apiClient';
+import { useAuth } from '../contexts/AuthContext';
+import { io, Socket } from 'socket.io-client';
+
+interface Conversation {
+  id: number;
+  name: string;
+  lastMessage: string;
+  time: string;
+  unread: number;
+  avatar?: string;
+}
+
+interface Message {
+  id: number;
+  senderId: number | string;
+  senderName: string;
+  content: string;
+  time: string;
+  isOwnMessage: boolean;
+}
 
 export const Messages = () => {
-  const [selectedChat, setSelectedChat] = useState(1);
+  const { user } = useAuth();
+  const [selectedChat, setSelectedChat] = useState<number | null>(null);
   const [newMessage, setNewMessage] = useState('');
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [wsError, setWsError] = useState<string | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  const [conversations] = useState([
-    {
-      id: 1,
-      name: 'DragonSlayer',
-      lastMessage: 'Ready for the node war tonight?',
-      time: '2 min ago',
-      unread: 2,
-      avatar: '/api/placeholder/32/32'
-    },
-    {
-      id: 2,
-      name: 'ShadowMage',
-      lastMessage: 'Thanks for the help with the boss!',
-      time: '1 hour ago',
-      unread: 0,
-      avatar: '/api/placeholder/32/32'
-    },
-    {
-      id: 3,
-      name: 'Guild Officers',
-      lastMessage: 'Meeting tomorrow at 7 PM',
-      time: '3 hours ago',
-      unread: 1,
-      avatar: '/api/placeholder/32/32'
-    },
-  ]);
+  // Fetch conversations
+  useEffect(() => {
+    const fetchConversations = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await apiClient.get('/messages/conversations');
+        setConversations(response.data.conversations);
+        if (response.data.conversations.length > 0) {
+          setSelectedChat(response.data.conversations[0].id);
+        }
+      } catch {
+        setError('Failed to load conversations.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchConversations();
+  }, []);
 
-  const [messages] = useState([
-    {
-      id: 1,
-      senderId: 1,
-      senderName: 'DragonSlayer',
-      content: 'Hey! Are you ready for tonight\'s node war?',
-      time: '8:30 PM',
-      isOwnMessage: false
-    },
-    {
-      id: 2,
-      senderId: 'me',
-      senderName: 'Me',
-      content: 'Yes! I\'ve been preparing my gear all day.',
-      time: '8:32 PM',
-      isOwnMessage: true
-    },
-    {
-      id: 3,
-      senderId: 1,
-      senderName: 'DragonSlayer',
-      content: 'Great! We need all hands on deck. The strategy is to focus on the towers first.',
-      time: '8:35 PM',
-      isOwnMessage: false
-    },
-  ]);
+  // Fetch messages for selected chat
+  useEffect(() => {
+    if (!selectedChat) return;
+    const fetchMessages = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await apiClient.get(`/messages/${selectedChat}`);
+        setMessages(response.data.messages.map((msg: any) => ({
+          ...msg,
+          isOwnMessage: msg.senderId === user?.id,
+        })));
+      } catch {
+        setError('Failed to load messages.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMessages();
+  }, [selectedChat, user?.id]);
 
-  const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      // In a real app, this would send the message via API
-      console.log('Sending message:', newMessage);
+  // WebSocket connection
+  useEffect(() => {
+    if (!user || !selectedChat) return;
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+    }
+    const socket = io('http://localhost:5000', {
+      transports: ['websocket'],
+      auth: { token: localStorage.getItem('token') },
+    });
+    socketRef.current = socket;
+    socket.emit('join_room', { room: `chat_${selectedChat}` });
+    socket.on('receive_message', (msg: any) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          ...msg,
+          isOwnMessage: msg.senderId === user?.id,
+        },
+      ]);
+    });
+    socket.on('connect_error', () => {
+      setWsError('WebSocket connection failed.');
+    });
+    return () => {
+      socket.emit('leave_room', { room: `chat_${selectedChat}` });
+      socket.disconnect();
+    };
+  }, [selectedChat, user?.id]);
+
+  // Scroll to bottom on new message
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !user || !selectedChat) return;
+    setSending(true);
+    setWsError(null);
+    try {
+      // Send via API (for persistence)
+      await apiClient.post(`/messages/${selectedChat}`, { content: newMessage });
+      // Send via WebSocket (for real-time)
+      socketRef.current?.emit('send_message', {
+        room: `chat_${selectedChat}`,
+        message: {
+          senderId: user.id,
+          senderName: user.name || user.username,
+          content: newMessage,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      });
       setNewMessage('');
+    } catch {
+      setWsError('Failed to send message.');
+    } finally {
+      setSending(false);
     }
   };
 
@@ -136,15 +205,16 @@ export const Messages = () => {
               <CardTitle className="text-white flex items-center gap-3">
                 <Avatar className="w-8 h-8">
                   <AvatarFallback className="bg-gradient-to-br from-amber-500 to-orange-600 text-white">
-                    D
+                    {conversations.find(c => c.id === selectedChat)?.name[0] || '?'}
                   </AvatarFallback>
                 </Avatar>
-                DragonSlayer
+                {conversations.find(c => c.id === selectedChat)?.name || 'Select a conversation'}
               </CardTitle>
             </CardHeader>
-            
             {/* Messages */}
             <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+              {loading && <div className="text-center text-gray-400">Loading messages...</div>}
+              {error && <div className="text-center text-red-500">{error}</div>}
               {messages.map((message) => (
                 <div
                   key={message.id}
@@ -162,8 +232,8 @@ export const Messages = () => {
                   </div>
                 </div>
               ))}
+              <div ref={messagesEndRef} />
             </CardContent>
-
             {/* Message Input */}
             <div className="p-4 border-t border-slate-700/50">
               <div className="flex gap-2">
@@ -173,14 +243,17 @@ export const Messages = () => {
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                   className="flex-1 bg-slate-700/50 border-slate-600 text-white placeholder-gray-400"
+                  disabled={sending}
                 />
                 <Button
                   onClick={handleSendMessage}
                   className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
+                  disabled={sending}
                 >
                   <Send className="w-4 h-4" />
                 </Button>
               </div>
+              {wsError && <div className="text-red-500 text-sm mt-2">{wsError}</div>}
             </div>
           </Card>
         </div>
