@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Avatar, AvatarFallback } from '../components/ui/avatar';
 import apiClient from '../lib/apiClient';
+import { useNavigate } from 'react-router-dom';
 
 interface ForumCategory {
   id: number;
@@ -32,6 +33,8 @@ export const Forum = () => {
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchForum = async () => {
@@ -142,7 +145,7 @@ export const Forum = () => {
                       </div>
                       <div>Last reply: {post.lastReply}</div>
                     </div>
-                    <Button variant="outline" className="border-amber-500/20 text-amber-400 hover:bg-amber-500/10">
+                    <Button variant="outline" className="border-amber-500/20 text-amber-400 hover:bg-amber-500/10" onClick={() => navigate(`/forum/${post.id}`)}>
                       View Discussion
                     </Button>
                   </div>

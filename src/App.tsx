@@ -15,6 +15,7 @@ import { Utilities } from './pages/Utilities';
 import { LoadingScreen } from './components/LoadingScreen';
 import { DiscordCallback } from './pages/DiscordCallback';
 import { WikiArticlePage } from './pages/WikiArticle';
+import { ForumPostPage } from './pages/ForumPost';
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -40,6 +41,7 @@ function App() {
             <Routes>
               <Route path="/auth/discord/callback" element={<DiscordCallback />} />
               <Route path="/wiki/:id" element={<WikiArticlePage />} />
+              <Route path="/forum/:id" element={<ForumPostPage />} />
               <Route path="/" element={<Layout />}>
                 <Route index element={<Dashboard />} />
                 <Route path="members" element={<Members />} />
