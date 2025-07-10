@@ -1,0 +1,190 @@
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Send, Search } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Input } from '../components/ui/input';
+import { Button } from '../components/ui/button';
+import { Avatar, AvatarFallback } from '../components/ui/avatar';
+
+export const Messages = () => {
+  const [selectedChat, setSelectedChat] = useState(1);
+  const [newMessage, setNewMessage] = useState('');
+
+  const [conversations] = useState([
+    {
+      id: 1,
+      name: 'DragonSlayer',
+      lastMessage: 'Ready for the node war tonight?',
+      time: '2 min ago',
+      unread: 2,
+      avatar: '/api/placeholder/32/32'
+    },
+    {
+      id: 2,
+      name: 'ShadowMage',
+      lastMessage: 'Thanks for the help with the boss!',
+      time: '1 hour ago',
+      unread: 0,
+      avatar: '/api/placeholder/32/32'
+    },
+    {
+      id: 3,
+      name: 'Guild Officers',
+      lastMessage: 'Meeting tomorrow at 7 PM',
+      time: '3 hours ago',
+      unread: 1,
+      avatar: '/api/placeholder/32/32'
+    },
+  ]);
+
+  const [messages] = useState([
+    {
+      id: 1,
+      senderId: 1,
+      senderName: 'DragonSlayer',
+      content: 'Hey! Are you ready for tonight\'s node war?',
+      time: '8:30 PM',
+      isOwnMessage: false
+    },
+    {
+      id: 2,
+      senderId: 'me',
+      senderName: 'Me',
+      content: 'Yes! I\'ve been preparing my gear all day.',
+      time: '8:32 PM',
+      isOwnMessage: true
+    },
+    {
+      id: 3,
+      senderId: 1,
+      senderName: 'DragonSlayer',
+      content: 'Great! We need all hands on deck. The strategy is to focus on the towers first.',
+      time: '8:35 PM',
+      isOwnMessage: false
+    },
+  ]);
+
+  const handleSendMessage = () => {
+    if (newMessage.trim()) {
+      // In a real app, this would send the message via API
+      console.log('Sending message:', newMessage);
+      setNewMessage('');
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="p-6 h-full"
+    >
+      <div className="flex h-full max-h-[calc(100vh-8rem)] gap-6">
+        {/* Conversations List */}
+        <div className="w-1/3">
+          <Card className="border-amber-500/20 bg-slate-800/50 backdrop-blur-sm h-full">
+            <CardHeader>
+              <CardTitle className="text-white">Messages</CardTitle>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Search conversations..."
+                  className="pl-10 bg-slate-700/50 border-slate-600 text-white placeholder-gray-400"
+                />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {conversations.map((conversation) => (
+                <div
+                  key={conversation.id}
+                  onClick={() => setSelectedChat(conversation.id)}
+                  className={`p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                    selectedChat === conversation.id
+                      ? 'bg-amber-500/20 border border-amber-500/20'
+                      : 'hover:bg-slate-700/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Avatar className="w-10 h-10">
+                      <AvatarFallback className="bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+                        {conversation.name[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium text-white truncate">{conversation.name}</h3>
+                        <span className="text-xs text-gray-400">{conversation.time}</span>
+                      </div>
+                      <p className="text-sm text-gray-400 truncate">{conversation.lastMessage}</p>
+                    </div>
+                    {conversation.unread > 0 && (
+                      <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                        <span className="text-xs text-white">{conversation.unread}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Chat Area */}
+        <div className="flex-1">
+          <Card className="border-amber-500/20 bg-slate-800/50 backdrop-blur-sm h-full flex flex-col">
+            <CardHeader className="border-b border-slate-700/50">
+              <CardTitle className="text-white flex items-center gap-3">
+                <Avatar className="w-8 h-8">
+                  <AvatarFallback className="bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+                    D
+                  </AvatarFallback>
+                </Avatar>
+                DragonSlayer
+              </CardTitle>
+            </CardHeader>
+            
+            {/* Messages */}
+            <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.isOwnMessage ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      message.isOwnMessage
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-slate-700 text-white'
+                    }`}
+                  >
+                    <p className="text-sm">{message.content}</p>
+                    <p className="text-xs opacity-75 mt-1">{message.time}</p>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+
+            {/* Message Input */}
+            <div className="p-4 border-t border-slate-700/50">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Type a message..."
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  className="flex-1 bg-slate-700/50 border-slate-600 text-white placeholder-gray-400"
+                />
+                <Button
+                  onClick={handleSendMessage}
+                  className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
