@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Filter, UserPlus, Crown, Shield, Sword, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -7,83 +7,36 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import apiClient from '../lib/apiClient';
+import { User } from '../types';
 
 export const Members = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-  
-  const [members] = useState([
-    { 
-      id: 1, 
-      name: 'DragonSlayer', 
-      role: 'SuperAdmin', 
-      level: 62, 
-      class: 'Warrior', 
-      equipmentScore: 680, 
-      status: 'online',
-      avatar: '/api/placeholder/32/32',
-      lastSeen: '2024-01-15'
-    },
-    { 
-      id: 2, 
-      name: 'ShadowMage', 
-      role: 'Maître', 
-      level: 61, 
-      class: 'Witch', 
-      equipmentScore: 665, 
-      status: 'online',
-      avatar: '/api/placeholder/32/32',
-      lastSeen: '2024-01-15'
-    },
-    { 
-      id: 3, 
-      name: 'StealthHunter', 
-      role: 'Officier', 
-      level: 60, 
-      class: 'Ranger', 
-      equipmentScore: 642, 
-      status: 'offline',
-      avatar: '/api/placeholder/32/32',
-      lastSeen: '2024-01-14'
-    },
-    { 
-      id: 4, 
-      name: 'IronGuard', 
-      role: 'Quartier-Maître', 
-      level: 59, 
-      class: 'Guardian', 
-      equipmentScore: 635, 
-      status: 'online',
-      avatar: '/api/placeholder/32/32',
-      lastSeen: '2024-01-15'
-    },
-    { 
-      id: 5, 
-      name: 'SwiftBlade', 
-      role: 'Membre', 
-      level: 58, 
-      class: 'Ninja', 
-      equipmentScore: 620, 
-      status: 'offline',
-      avatar: '/api/placeholder/32/32',
-      lastSeen: '2024-01-13'
-    },
-    { 
-      id: 6, 
-      name: 'MysticHealer', 
-      role: 'Membre', 
-      level: 57, 
-      class: 'Mystic', 
-      equipmentScore: 605, 
-      status: 'online',
-      avatar: '/api/placeholder/32/32',
-      lastSeen: '2024-01-15'
-    },
-  ]);
+  const [members, setMembers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchMembers = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await apiClient.get('/members');
+        setMembers(response.data.members);
+      } catch (err: any) {
+        setError('Failed to load members.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMembers();
+  }, []);
 
   const filteredMembers = members.filter(member => {
-    const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         member.class.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (member.username || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (member.character_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (member.character_class || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = roleFilter === 'all' || member.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -166,70 +119,70 @@ export const Members = () => {
         </CardContent>
       </Card>
 
+      {/* Loading/Error States */}
+      {loading && (
+        <div className="text-center text-gray-400 py-8">Loading members...</div>
+      )}
+      {error && (
+        <div className="text-center text-red-500 py-8">{error}</div>
+      )}
+
       {/* Members Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredMembers.map((member, index) => (
-          <motion.div
-            key={member.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-          >
-            <Card className="border-amber-500/20 bg-slate-800/50 backdrop-blur-sm hover:border-amber-500/40 transition-all duration-300 hover:scale-105">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <Avatar className="w-12 h-12">
-                      <AvatarImage src={member.avatar} />
-                      <AvatarFallback className="bg-gradient-to-br from-amber-500 to-orange-600 text-white">
-                        {member.name[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-800 ${getStatusColor(member.status)}`} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-white">{member.name}</h3>
-                      {getRoleIcon(member.role)}
+      {!loading && !error && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredMembers.map((member, index) => (
+            <motion.div
+              key={member.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+            >
+              <Card className="border-amber-500/20 bg-slate-800/50 backdrop-blur-sm hover:border-amber-500/40 transition-all duration-300 hover:scale-105">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Avatar className="w-12 h-12">
+                        <AvatarImage src={member.profile_image || undefined} />
+                        <AvatarFallback className="bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+                          {member.username?.[0] || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-800 ${getStatusColor('online')}`} />
                     </div>
-                    <Badge className={`text-xs ${getRoleColor(member.role)}`}>
-                      {member.role}
-                    </Badge>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-white">{member.username}</h3>
+                        {getRoleIcon(member.role || '')}
+                      </div>
+                      <Badge className={`text-xs ${getRoleColor(member.role || '')}`}>
+                        {member.role}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-gray-400">Level</p>
-                    <p className="text-white font-semibold">{member.level}</p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-gray-400">Class</p>
+                      <p className="text-white font-semibold">{member.character_class || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Equipment Score</p>
+                      <p className="text-white font-semibold">{member.equipment_score || '-'}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-gray-400">Class</p>
-                    <p className="text-white font-semibold">{member.class}</p>
+                  <div className="text-xs text-gray-500">
+                    Joined: {member.created_at ? new Date(member.created_at).toLocaleDateString() : '-'}
                   </div>
-                  <div>
-                    <p className="text-gray-400">Equipment Score</p>
-                    <p className="text-white font-semibold">{member.equipmentScore}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Status</p>
-                    <p className={`font-semibold ${member.status === 'online' ? 'text-green-400' : 'text-gray-400'}`}>
-                      {member.status}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-xs text-gray-500">
-                  Last seen: {member.lastSeen}
-                </div>
-                <Button variant="outline" className="w-full border-amber-500/20 text-amber-400 hover:bg-amber-500/10">
-                  View Profile
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
+                  <Button variant="outline" className="w-full border-amber-500/20 text-amber-400 hover:bg-amber-500/10">
+                    View Profile
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 };
